@@ -2,8 +2,6 @@ name = "deal-close"
 main = "index.js"
 compatibility_date = "2025-01-01"
 
-# --- ที่เก็บข้อมูล (auto-backup) ---
-# สร้าง KV namespace ใน Cloudflare แล้วเอา id มาวางแทนข้างล่าง
+# Cloudflare Wrangler 4 จะสร้าง KV namespace ให้อัตโนมัติถ้ายังไม่ระบุ id
 [[kv_namespaces]]
 binding = "DEAL_CLOSE"
-id = "ใส่_KV_NAMESPACE_ID_ตรงนี้"
