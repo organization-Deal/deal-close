@@ -17,10 +17,197 @@ body{font-family:Inter,Prompt,system-ui,sans-serif}
 
 body{font-family:Inter,Prompt,system-ui,sans-serif}
 .num{font-variant-numeric:tabular-nums}
+
+/* ===== Mobile UX / DEAL Close ===== */
+@media (max-width: 767px){
+  html,body{max-width:100%;overflow-x:hidden}
+  body{font-size:14px}
+  header.sticky{position:relative!important;top:auto!important}
+  header .max-w-\[1400px\]{padding:10px 12px!important;gap:8px!important}
+  header .max-w-\[1400px\] > div:first-child{width:100%;justify-content:space-between}
+  header .max-w-\[1400px\] > div:nth-child(2){
+    width:100%;margin-left:0!important;display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important
+  }
+  header .max-w-\[1400px\] > div:nth-child(2) > *{width:100%!important;min-width:0!important}
+  header input,header select,header button{min-height:42px;font-size:14px!important}
+  header input.w-32{grid-column:span 1}
+  header .w-full.flex.items-center.gap-3.text-xs{gap:8px!important;flex-wrap:wrap;line-height:1.35}
+  header .w-full.flex.items-center.gap-3.text-xs > .ml-auto{margin-left:0!important;width:100%}
+  main.max-w-\[1400px\]{padding:12px!important;gap:14px!important}
+  footer.max-w-\[1400px\]{padding-left:12px!important;padding-right:12px!important}
+  .space-y-8>:not([hidden])~:not([hidden]){margin-top:14px!important}
+  section.bg-card,aside.bg-card{border-radius:14px!important}
+  .p-5{padding:14px!important}.p-6{padding:14px!important}
+  .py-8{padding-top:12px!important;padding-bottom:12px!important}.gap-8{gap:14px!important}
+  input,select,textarea{font-size:16px!important}
+  button{touch-action:manipulation}
+  .grid.grid-cols-2{gap:8px!important}
+  .overflow-x-auto{overflow-x:auto!important;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .overflow-x-auto table{min-width:760px}
+  table th,table td{white-space:nowrap}
+  .lg\:sticky{position:relative!important;top:auto!important}
+  #deal-cloud-pill{left:12px!important;right:12px!important;bottom:10px!important;text-align:center;justify-content:center}
+}
+@media (max-width:420px){
+  .grid.grid-cols-2{grid-template-columns:1fr!important}
+  .grid.grid-cols-2.sm\:grid-cols-4{grid-template-columns:1fr 1fr!important}
+}
+
 </style>
 </head>
 <body>
 <div id="root"></div>
+
+<script id="deal-cloud-client">
+(function(){
+  if(!window.fetch || !window.localStorage) return;
+  var API="/api/data", PREFIX="deal_close_m:", K_INDEX="deal_close_index", K_LAST="deal_close_last";
+  var knownUpdatedAt=(window.__DEAL_CLOUD__&&Number(window.__DEAL_CLOUD__.updatedAt))||0;
+  var saving=0, applying=false;
+
+  var pill=document.createElement("button");
+  pill.type="button"; pill.id="deal-cloud-pill"; pill.setAttribute("aria-label","ซิงก์ข้อมูลทีม");
+  pill.style.cssText="position:fixed;right:12px;bottom:12px;z-index:9998;display:flex;align-items:center;gap:6px;font:500 12px Inter,Prompt,system-ui,sans-serif;background:#fff;border:1px solid #E8E2DA;border-radius:999px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,.08);color:#8A8178;transition:opacity .25s;cursor:pointer";
+  pill.textContent="☁ ซิงก์ข้อมูลทีม";
+  function mount(){if(document.body&&!pill.parentNode)document.body.appendChild(pill)}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);else mount();
+  function status(t,c){pill.textContent=t;pill.style.color=c||"#8A8178";pill.style.opacity="1"}
+
+  function normalizeIndex(months){
+    // Preserve existing timestamps so every cloud poll does not look like a data change.
+    var old={};
+    try{
+      (JSON.parse(localStorage.getItem(K_INDEX)||"[]")||[]).forEach(function(x){
+        var label=typeof x==="string"?x:(x&&x.label);
+        if(label)old[label]=(x&&x.ts)||0;
+      });
+    }catch(e){}
+    var now=Date.now();
+    return (months||[]).map(function(m,i){return {label:m,ts:old[m]||now-i}});
+  }
+  function applySnapshot(d,opts){
+    opts=opts||{};
+    if(!d||!d.data||!Array.isArray(d.months))return false;
+    applying=true;
+    var changed=false,current=localStorage.getItem(K_LAST);
+    var currentRaw=current?localStorage.getItem(PREFIX+current):null;
+    // Old Worker had no meta timestamp. On the first v2 load, preserve this browser's
+    // existing local data so a stale KV snapshot cannot overwrite the owner's good copy.
+    var preserveLocal=!!(opts.initial && !(Number(d.updatedAt)||0) && currentRaw);
+
+    d.months.forEach(function(m){
+      if(!Object.prototype.hasOwnProperty.call(d.data,m))return;
+      var incoming=JSON.stringify(d.data[m]), key=PREFIX+m, existing=localStorage.getItem(key);
+      if(preserveLocal && existing) return;
+      if(existing!==incoming){localStorage.setItem(key,incoming);changed=true}
+    });
+
+    var localLabels=[];
+    try{
+      localLabels=(JSON.parse(localStorage.getItem(K_INDEX)||"[]")||[])
+        .map(function(x){return typeof x==="string"?x:(x&&x.label)})
+        .filter(Boolean);
+    }catch(e){}
+    var labels=preserveLocal
+      ? localLabels.concat(d.months.filter(function(m){return localLabels.indexOf(m)<0}))
+      : d.months.slice();
+    var idxRaw=JSON.stringify(normalizeIndex(labels));
+    if(localStorage.getItem(K_INDEX)!==idxRaw){localStorage.setItem(K_INDEX,idxRaw);changed=true}
+
+    if(opts.initial){
+      var target=preserveLocal?current:((d.last&&d.data[d.last])?d.last:(d.months[d.months.length-1]||current));
+      if(target&&localStorage.getItem(K_LAST)!==target){localStorage.setItem(K_LAST,target);changed=true}
+      if(preserveLocal){
+        setTimeout(function(){status("⚠ ข้อมูลเครื่องนี้ยังไม่ขึ้นทีม — กด ↑ ส่งข้อมูล","#8B1E1E")},50);
+      }
+    }else if(!current&&d.last){
+      localStorage.setItem(K_LAST,d.last);changed=true;
+    }
+    knownUpdatedAt=Math.max(knownUpdatedAt,Number(d.updatedAt)||0);
+    applying=false;
+    return changed;
+  }
+
+  window.__dealCloudSave=function(month,state){
+    if(!month||applying)return Promise.resolve({ok:true,skipped:true});
+    saving++;status("☁ กำลังเซฟ...");
+    return fetch(API+"?month="+encodeURIComponent(month),{
+      method:"PUT",headers:{"content-type":"application/json","cache-control":"no-cache"},cache:"no-store",
+      body:JSON.stringify(state)
+    }).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})
+      .then(function(d){
+        saving=Math.max(0,saving-1);knownUpdatedAt=Math.max(knownUpdatedAt,Number(d.updatedAt)||0);
+        status("☁ เซฟขึ้นทีมแล้ว","#3F6B54");
+        setTimeout(function(){if(!saving)status("☁ ข้อมูลทีมล่าสุด","#3F6B54")},1200);
+        try{if("BroadcastChannel"in window){var bc=new BroadcastChannel("deal-close-sync");bc.postMessage({type:"saved",month:month,updatedAt:d.updatedAt||Date.now()});bc.close()}}catch(e){}
+        return d;
+      }).catch(function(err){saving=Math.max(0,saving-1);status("⚠ เซฟคลาวด์ไม่สำเร็จ","#8B1E1E");throw err});
+  };
+
+  window.__dealCloudPushCurrent=function(){
+    try{
+      var m=localStorage.getItem(K_LAST);
+      var raw=m&&localStorage.getItem(PREFIX+m);
+      if(!m||!raw){status("⚠ ไม่มีข้อมูลเดือนปัจจุบันให้ส่ง","#8B1E1E");return Promise.resolve(false)}
+      var state=JSON.parse(raw);
+      return window.__dealCloudSave(m,state).then(function(d){
+        status("☁ ส่งข้อมูลเครื่องนี้ขึ้นทีมแล้ว","#3F6B54");
+        return d;
+      });
+    }catch(e){
+      status("⚠ ส่งข้อมูลไม่สำเร็จ","#8B1E1E");
+      return Promise.resolve(false);
+    }
+  };
+
+  window.__dealCloudDelete=function(month){
+    if(!month)return Promise.resolve();
+    status("☁ กำลังลบจากทีม...");
+    return fetch(API+"?month="+encodeURIComponent(month),{method:"DELETE",cache:"no-store",headers:{"cache-control":"no-cache"}})
+      .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})
+      .then(function(d){knownUpdatedAt=Math.max(knownUpdatedAt,Number(d.updatedAt)||0);status("☁ ลบจากทีมแล้ว","#3F6B54");return d})
+      .catch(function(){status("⚠ ลบคลาวด์ไม่สำเร็จ","#8B1E1E")});
+  };
+
+  function isEditing(){
+    var el=document.activeElement;
+    if(!el)return false;
+    var tag=(el.tagName||"").toLowerCase();
+    return tag==="input"||tag==="textarea"||tag==="select"||!!el.isContentEditable;
+  }
+
+  window.__dealCloudPull=function(opts){
+    opts=opts||{};
+    // Never interrupt typing with an automatic team sync. Manual sync (force) still works.
+    if((saving||isEditing())&&!opts.force)return Promise.resolve(false);
+    status("☁ กำลังดึงข้อมูลทีม...");
+    return fetch(API+"?_="+Date.now(),{method:"GET",cache:"no-store",headers:{"cache-control":"no-cache","pragma":"no-cache"}})
+      .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()})
+      .then(function(d){
+        var remoteAt=Number(d.updatedAt)||0;
+        if(!opts.force&&remoteAt<=knownUpdatedAt){status("☁ ข้อมูลทีมล่าสุด","#3F6B54");return false}
+        var changed=applySnapshot(d,{initial:false});knownUpdatedAt=Math.max(knownUpdatedAt,remoteAt);
+        if(changed){
+          status("☁ อัปเดตข้อมูลทีมแล้ว","#3F6B54");
+          // Apply cloud data inside React without reloading the whole page.
+          try{window.dispatchEvent(new CustomEvent("deal-cloud-updated",{detail:{updatedAt:remoteAt}}))}catch(e){}
+          return true;
+        }
+        status("☁ ข้อมูลทีมล่าสุด","#3F6B54");return false;
+      }).catch(function(){status("⚠ โหลดข้อมูลทีมไม่ได้","#8B1E1E");return false});
+  };
+
+  if(window.__DEAL_CLOUD__)applySnapshot(window.__DEAL_CLOUD__,{initial:true});
+  pill.addEventListener("click",function(){window.__dealCloudPull({force:true})});
+  window.addEventListener("focus",function(){window.__dealCloudPull()});
+  window.addEventListener("online",function(){window.__dealCloudPull({force:true})});
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")window.__dealCloudPull()});
+  try{if("BroadcastChannel"in window){var channel=new BroadcastChannel("deal-close-sync");channel.onmessage=function(ev){if(ev&&ev.data&&ev.data.type==="saved")window.__dealCloudPull({force:true})}}}catch(e){}
+  setInterval(function(){if(document.visibilityState==="visible")window.__dealCloudPull()},8000);
+})();
+</script>
+
 <script>/**
  * @license React
  * react.production.min.js
@@ -464,18 +651,91 @@ function App() {
   const [msg, setMsg] = useState("");
   const fileRef = useRef(null);
   const timer = useRef();
+  const initialPersistSig = useRef(month + "|" + JSON.stringify(s));
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const stateRef = useRef(s);
+  const monthRef = useRef(month);
+  const [historyTick, setHistoryTick] = useState(0);
+  stateRef.current = s;
+  monthRef.current = month;
   const flash = m => {
     setMsg(m);
     setTimeout(() => setMsg(""), 2500);
   };
+  const cloneState = value => JSON.parse(JSON.stringify(value));
+  const historySnapshot = () => ({
+    month: monthRef.current,
+    state: cloneState(stateRef.current)
+  });
+  const bumpHistory = () => setHistoryTick(v => v + 1);
+  const recordHistory = () => {
+    undoStack.current.push(historySnapshot());
+    if (undoStack.current.length > 50) undoStack.current.shift();
+    redoStack.current = [];
+    bumpHistory();
+  };
+  const restoreSnapshot = snap => {
+    if (!snap) return;
+    const next = cloneState(snap.state);
+    monthRef.current = snap.month;
+    stateRef.current = next;
+    setMonth(snap.month);
+    setS(next);
+  };
+  const undo = () => {
+    if (!undoStack.current.length) {
+      flash("ไม่มีรายการให้ย้อนกลับ");
+      return;
+    }
+    redoStack.current.push(historySnapshot());
+    const prev = undoStack.current.pop();
+    restoreSnapshot(prev);
+    bumpHistory();
+    flash("ย้อนกลับแล้ว");
+  };
+  const redo = () => {
+    if (!redoStack.current.length) {
+      flash("ไม่มีรายการให้ทำซ้ำ");
+      return;
+    }
+    undoStack.current.push(historySnapshot());
+    const next = redoStack.current.pop();
+    restoreSnapshot(next);
+    bumpHistory();
+    flash("ทำซ้ำแล้ว");
+  };
+  useEffect(() => {
+    if (!LS) return;
+    const onCloudUpdated = () => {
+      try {
+        const currentMonth = LS.getItem(K_LAST) || monthRef.current;
+        const raw = currentMonth ? LS.getItem(K_M(currentMonth)) : null;
+        if (currentMonth && raw) {
+          const next = JSON.parse(raw);
+          // Mark this as hydration from cloud so the autosave effect will not echo it back.
+          initialPersistSig.current = currentMonth + "|" + raw;
+          monthRef.current = currentMonth;
+          stateRef.current = next;
+          setMonth(currentMonth);
+          setS(next);
+        }
+        setSaved(readIndex());
+        setSavedAt(new Date().toLocaleTimeString("th-TH"));
+      } catch (e) {}
+    };
+    window.addEventListener("deal-cloud-updated", onCloudUpdated);
+    return () => window.removeEventListener("deal-cloud-updated", onCloudUpdated);
+  }, []);
   useEffect(() => {
     if (!LS) return;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       try {
-        LS.setItem(K_M(month), JSON.stringify(s));
+        const payload = JSON.stringify(s);
+        LS.setItem(K_M(month), payload);
         LS.setItem(K_LAST, month);
-        const idx = readIndex().filter(x => x.label !== month);
+        const idx = readIndex().filter(x => x && x.label && x.label !== month);
         idx.unshift({
           label: month,
           ts: Date.now()
@@ -483,14 +743,44 @@ function App() {
         writeIndex(idx);
         setSaved(idx);
         setSavedAt(new Date().toLocaleTimeString("th-TH"));
+
+        const sig = month + "|" + payload;
+        const isInitialHydration = initialPersistSig.current === sig;
+        initialPersistSig.current = null;
+        if (!isInitialHydration && window.__dealCloudSave) {
+          window.__dealCloudSave(month, s).catch(() => {});
+        }
       } catch (e) {}
     }, 500);
     return () => clearTimeout(timer.current);
   }, [s, month]);
-  const update = patch => setS(p => ({
-    ...p,
-    ...patch
-  }));
+  const update = patch => {
+    const current = stateRef.current;
+    recordHistory();
+    const next = {
+      ...current,
+      ...patch
+    };
+    stateRef.current = next;
+    setS(next);
+  };
+  useEffect(() => {
+    const onKeyDown = e => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const tag = (e.target && e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || e.target && e.target.isContentEditable) return;
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const t = useMemo(() => {
     const rows = s.machines.map(m => ({
       ...m,
@@ -629,7 +919,10 @@ function App() {
     try {
       const raw = LS.getItem(K_M(label));
       if (raw) {
-        setS(JSON.parse(raw));
+        const next = JSON.parse(raw);
+        stateRef.current = next;
+        monthRef.current = label;
+        setS(next);
         setMonth(label);
         flash("เปิด " + label);
       }
@@ -639,20 +932,28 @@ function App() {
   };
   const newMonth = () => {
     const l = prompt("ชื่อเดือนใหม่ (ก๊อปข้อมูลเดือนนี้มาเป็นฐาน)", month);
-    if (l && l.trim()) setMonth(l.trim());
+    if (l && l.trim()) {
+      monthRef.current = l.trim();
+      setMonth(l.trim());
+    }
   };
   const delMonth = () => {
     if (!LS) return;
     if (!confirm("ลบเดือน “" + month + "” ออกจากเครื่อง?")) return;
+    recordHistory();
     try {
       LS.removeItem(K_M(month));
-      const idx = readIndex().filter(x => x.label !== month);
+      if (window.__dealCloudDelete) window.__dealCloudDelete(month);
+      const idx = readIndex().filter(x => x && x.label && x.label !== month);
       writeIndex(idx);
       setSaved(idx);
       if (idx.length) {
         openMonth(idx[0].label);
       } else {
-        setS(seedState());
+        const next = seedState();
+        stateRef.current = next;
+        monthRef.current = "พ.ค. 2569";
+        setS(next);
         setMonth("พ.ค. 2569");
       }
       flash("ลบแล้ว");
@@ -677,8 +978,12 @@ function App() {
     r.onload = () => {
       try {
         const d = JSON.parse(r.result);
-        if (d.month) setMonth(d.month);
-        setS({
+        recordHistory();
+        if (d.month) {
+          monthRef.current = d.month;
+          setMonth(d.month);
+        }
+        const next = {
           machines: d.machines || [],
           expenses: d.expenses || [],
           sellers: d.sellers || [],
@@ -692,7 +997,9 @@ function App() {
           commRate: d.commRate != null ? d.commRate : COMM_RATE,
           taxRate: d.taxRate != null ? d.taxRate : TAX_RATE,
           deductComm: !!d.deductComm
-        });
+        };
+        stateRef.current = next;
+        setS(next);
         flash("นำเข้าแล้ว");
       } catch (err) {
         flash("ไฟล์ไม่ถูกต้อง");
@@ -751,11 +1058,16 @@ function App() {
     className: "text-brand"
   }, "!")), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-muted"
-  }, "\u0E1B\u0E34\u0E14\u0E07\u0E1A\u0E23\u0E32\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19")), /*#__PURE__*/React.createElement("div", {
+  }, "\u0E1B\u0E34\u0E14\u0E07\u0E1A\u0E23\u0E32\u0E22\u0E40\u0E14\u0E37\u0E2D\u0E19"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-sage border border-line rounded-full px-2 py-0.5"
+  }, "TEAM SYNC v2")), /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 ml-auto text-sm"
   }, /*#__PURE__*/React.createElement("input", {
     value: month,
-    onChange: e => setMonth(e.target.value),
+    onChange: e => {
+      monthRef.current = e.target.value;
+      setMonth(e.target.value);
+    },
     className: "bg-card border border-line rounded-full px-3 py-1.5 w-32 text-center outline-none focus:border-brand transition-colors"
   }), LS && /*#__PURE__*/React.createElement("select", {
     value: "",
@@ -766,10 +1078,28 @@ function App() {
   }, "\u0E40\u0E1B\u0E34\u0E14\u0E40\u0E14\u0E37\u0E2D\u0E19\u2026"), saved.map(x => /*#__PURE__*/React.createElement("option", {
     key: x.label,
     value: x.label
-  }, x.label))), LS && /*#__PURE__*/React.createElement("button", {
+  }, x.label))), /*#__PURE__*/React.createElement("button", {
+    onClick: undo,
+    disabled: undoStack.current.length === 0,
+    title: "ย้อนกลับการแก้ไขล่าสุด (Cmd/Ctrl+Z)",
+    className: hdrBtn + (undoStack.current.length === 0 ? " opacity-40 cursor-not-allowed" : "")
+  }, "↶ ย้อนกลับ"), /*#__PURE__*/React.createElement("button", {
+    onClick: redo,
+    disabled: redoStack.current.length === 0,
+    title: "ทำซ้ำการแก้ไขที่ย้อนกลับ (Cmd/Ctrl+Shift+Z)",
+    className: hdrBtn + (redoStack.current.length === 0 ? " opacity-40 cursor-not-allowed" : "")
+  }, "↷ ทำซ้ำ"), LS && /*#__PURE__*/React.createElement("button", {
     onClick: newMonth,
     className: hdrBtn
   }, "+ \u0E40\u0E14\u0E37\u0E2D\u0E19"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.__dealCloudPull && window.__dealCloudPull({ force: true }),
+    className: hdrBtn,
+    title: "ดึงข้อมูลล่าสุดของทีม"
+  }, "↻ ซิงก์"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.__dealCloudPushCurrent && window.__dealCloudPushCurrent(),
+    className: hdrBtn,
+    title: "ส่งข้อมูลเดือนนี้จากเครื่องนี้ขึ้นคลาวด์"
+  }, "↑ ส่งข้อมูล"), /*#__PURE__*/React.createElement("button", {
     onClick: exportXLSX,
     className: "bg-brand hover:bg-branddark text-white font-medium rounded-full px-4 py-1.5 transition-colors"
   }, "Export Excel"), /*#__PURE__*/React.createElement("button", {
@@ -1462,53 +1792,5 @@ function Row({
   }, baht(v)));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));</script>
-<script>(function(){
-  if(!window.fetch||!window.localStorage) return;
-  var API="/api/data", PREFIX="deal_close_m:";
-  var origSet=localStorage.setItem.bind(localStorage);
-  var pending={}, timers={}, suppress=false;
-  var pill=document.createElement("div");
-  pill.style.cssText="position:fixed;right:12px;bottom:12px;z-index:9998;font:500 12px Inter,Prompt,system-ui,sans-serif;background:#fff;border:1px solid #E8E2DA;border-radius:999px;padding:6px 12px;box-shadow:0 4px 16px rgba(0,0,0,.08);color:#8A8178;transition:opacity .3s";
-  function status(t,c){ pill.textContent=t; pill.style.color=c||"#8A8178"; pill.style.opacity="1"; }
-  function mount(){ if(document.body&&!pill.parentNode) document.body.appendChild(pill); }
-  if(document.readyState!=="loading") mount(); else document.addEventListener("DOMContentLoaded",mount);
-  function push(month){
-    var v=pending[month]; if(v==null) return;
-    status("\u2601 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e40\u0e0b\u0e1f...");
-    fetch(API+"?month="+encodeURIComponent(month),{method:"PUT",headers:{"content-type":"application/json"},body:v,keepalive:true})
-      .then(function(r){ if(r.ok){ delete pending[month]; status("\u2601 \u0e40\u0e0b\u0e1f\u0e02\u0e36\u0e49\u0e19\u0e04\u0e25\u0e32\u0e27\u0e14\u0e4c\u0e41\u0e25\u0e49\u0e27","#3F6B54"); setTimeout(function(){pill.style.opacity="0.5";},2000);} else status("\u26a0 \u0e40\u0e0b\u0e1f\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08","#8B1E1E"); })
-      .catch(function(){ status("\u26a0 \u0e2d\u0e2d\u0e1f\u0e44\u0e25\u0e19\u0e4c \u2014 \u0e08\u0e30\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48","#8B1E1E"); });
-  }
-  localStorage.setItem=function(k,v){
-    origSet(k,v);
-    if(!suppress && k.indexOf(PREFIX)===0){
-      var m=k.slice(PREFIX.length); pending[m]=v; clearTimeout(timers[m]);
-      timers[m]=setTimeout(function(){push(m);},1200);
-    }
-  };
-  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="hidden") Object.keys(pending).forEach(push); });
-  window.addEventListener("pagehide",function(){ Object.keys(pending).forEach(push); });
-  if(sessionStorage.getItem("deal_close_pulled")!=="1"){
-    status("\u2601 \u0e01\u0e33\u0e25\u0e31\u0e07\u0e42\u0e2b\u0e25\u0e14\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25...");
-    fetch(API).then(function(r){return r.ok?r.json():null;}).then(function(d){
-      sessionStorage.setItem("deal_close_pulled","1");
-      if(d&&d.months&&d.months.length){
-        suppress=true; var changed=false, idx=[];
-        try{idx=JSON.parse(localStorage.getItem("deal_close_index")||"[]");}catch(e){}
-        d.months.forEach(function(m){
-          var inc=JSON.stringify(d.data[m]);
-          if(localStorage.getItem(PREFIX+m)!==inc){ origSet(PREFIX+m,inc); changed=true; }
-          if(idx.indexOf(m)<0){ idx.push(m); changed=true; }
-        });
-        origSet("deal_close_index",JSON.stringify(idx));
-        if(!localStorage.getItem("deal_close_last")) origSet("deal_close_last",d.months[d.months.length-1]);
-        suppress=false;
-        if(changed){ location.reload(); return; }
-      }
-      status("\u2601 \u0e0b\u0e34\u0e07\u0e04\u0e4c\u0e41\u0e25\u0e49\u0e27","#3F6B54"); setTimeout(function(){pill.style.opacity="0.5";},2000);
-    }).catch(function(){ sessionStorage.setItem("deal_close_pulled","1"); status("\u26a0 \u0e42\u0e2b\u0e25\u0e14\u0e04\u0e25\u0e32\u0e27\u0e14\u0e4c\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49 (\u0e43\u0e0a\u0e49\u0e02\u0e2d\u0e07\u0e43\u0e19\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07)","#8B1E1E"); });
-  } else { status("\u2601 \u0e0b\u0e34\u0e07\u0e04\u0e4c\u0e41\u0e25\u0e49\u0e27","#3F6B54"); setTimeout(function(){pill.style.opacity="0.5";},2500); }
-})();
-</script>
 </body>
 </html>
