@@ -797,13 +797,14 @@ function App() {
     const otherIncome = (Number(s.incInstallment) || 0);
     const received = channelIn;
     const carrySum = (s.carry || []).reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    const receivedNet = received - carrySum;
+    // ยอดยกไปเดือนหน้าเป็นข้อมูลติดตามเท่านั้น ไม่กระทบยอดเงินเข้า/รายได้/กำไร
+    const receivedNet = received;
     const matchTarget = salesSum + (Number(s.incInstallment) || 0) + (Number(s.incRelocation) || 0);
     const stmtDiff = receivedNet - matchTarget;
     const expSum = s.expenses.filter(e => e.include).reduce((a, e) => a + (Number(e.amount) || 0), 0);
     const cr = s.commRate != null ? Number(s.commRate) : COMM_RATE;
     const commSum = s.sellers.reduce((a, x) => a + (x.commOverride != null ? Number(x.commOverride) : ((Number(x.total) || 0) - (Number(x.noComm) || 0)) * cr), 0);
-    const totalRevenue = grossProfit + (Number(s.incInstallment) || 0) + (Number(s.incRelocation) || 0) - carrySum;
+    const totalRevenue = grossProfit + (Number(s.incInstallment) || 0) + (Number(s.incRelocation) || 0);
     const profitBeforeComm = totalRevenue - expSum;
     const profit = profitBeforeComm - (s.deductComm ? commSum : 0);
     const tax = profit * (Number(s.taxRate) || 0);
@@ -1027,9 +1028,9 @@ function App() {
     });
     ch.push(["รวม", s.sellers.reduce((a, x) => a + (+x.count || 0), 0), s.sellers.reduce((a, x) => a + (+x.total || 0), 0), s.sellers.reduce((a, x) => a + (+x.noComm || 0), 0), "", t.commSum]);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ch), "คอมเซลล์");
-    const sum = [["สรุปยอด", month], ["กำไรขั้นต้น หักภาษีตู้แล้ว", t.grossProfit], ["รายได้จากค่าผ่อน", s.incInstallment], ["รายได้จากค่าย้ายโล", s.incRelocation], ["ยกไปเดือนหน้า (หัก)", -t.carrySum], ["รวมรายได้", t.totalRevenue], ["ค่าใช้จ่าย", t.expSum], ["กำไรก่อนหักคอม", t.profitBeforeComm], ["คอมเซลล์", t.commSum], ["กำไร", t.profit], ["ภงด. " + Math.round(s.taxRate * 100) + "%", t.tax], ["กำไรสุทธิ", t.net]];
+    const sum = [["สรุปยอด", month], ["กำไรขั้นต้น หักภาษีตู้แล้ว", t.grossProfit], ["รายได้จากค่าผ่อน", s.incInstallment], ["รายได้จากค่าย้ายโล", s.incRelocation], ["รวมรายได้", t.totalRevenue], ["ค่าใช้จ่าย", t.expSum], ["กำไรก่อนหักคอม", t.profitBeforeComm], ["คอมเซลล์", t.commSum], ["กำไร", t.profit], ["ภงด. " + Math.round(s.taxRate * 100) + "%", t.tax], ["กำไรสุทธิ", t.net]];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), "สรุป");
-    const rec = [["แมทเงินเข้า", month], ["โอน/สเตทเมนต์", s.stmtSales || 0], ["เงินสด", s.inCash || 0], ["บัตรเครดิต", s.inCard || 0], ["อื่นๆ", s.inOther || 0], ["ค่าผ่อน", s.incInstallment || 0], ["ค่าย้ายโล", s.incRelocation || 0], ["รวมเงินเข้า", t.received], ["ยกไปเดือนหน้า (หัก)", -t.carrySum], ["รวมเงินเข้าสุทธิ", t.receivedNet], ["ต้องได้ (ขาย+ผ่อน+ย้ายโล)", t.matchTarget], ["ผลต่าง", t.stmtDiff]];
+    const rec = [["แมทเงินเข้า", month], ["โอน/สเตทเมนต์", s.stmtSales || 0], ["เงินสด", s.inCash || 0], ["บัตรเครดิต", s.inCard || 0], ["อื่นๆ", s.inOther || 0], ["ค่าผ่อน", s.incInstallment || 0], ["ค่าย้ายโล", s.incRelocation || 0], ["รวมเงินเข้า", t.received], ["ต้องได้ (ขาย+ผ่อน+ย้ายโล)", t.matchTarget], ["ผลต่าง", t.stmtDiff]];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rec), "เงินเข้า");
     if ((s.carry || []).length) {
       const cf = [["โลเคชั่น/ตู้", "ยอดที่เข้ามาแล้ว", "หมายเหตุ"]];
@@ -1170,19 +1171,7 @@ function App() {
     })
   })), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-x-5 gap-y-1 mt-4 pt-4 border-t border-line text-sm"
-  }, /*#__PURE__*/React.createElement("span", {className: "flex items-center gap-2"}, /*#__PURE__*/React.createElement("span", {className: "text-muted"}, "รวมเงินเข้า"), /*#__PURE__*/React.createElement("span", {className: "num font-semibold text-inkdark"}, baht(t.received))), t.carrySum > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-muted"
-  }, "\u2212 \u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32"), /*#__PURE__*/React.createElement("span", {
-    className: "num text-brand"
-  }, baht(t.carrySum))), t.carrySum > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "flex items-center gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-muted"
-  }, "= \u0E2A\u0E38\u0E17\u0E18\u0E34"), /*#__PURE__*/React.createElement("span", {
-    className: "num font-semibold text-inkdark"
-  }, baht(t.receivedNet))), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {className: "flex items-center gap-2"}, /*#__PURE__*/React.createElement("span", {className: "text-muted"}, "รวมเงินเข้า"), /*#__PURE__*/React.createElement("span", {className: "num font-semibold text-inkdark"}, baht(t.received))), /*#__PURE__*/React.createElement("span", {
     className: "flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-muted"
@@ -1223,7 +1212,7 @@ function App() {
       marginBottom: 8,
       fontSize: 13
     }
-  }, "เงินเข้าสุทธิ " + baht(t.receivedNet) + (t.stmtDiff > 0 ? " มากกว่า" : " น้อยกว่า") + "ยอดที่ต้องได้ " + baht(t.matchTarget) + " อยู่ " + baht(Math.abs(t.stmtDiff)) + " บาท"), /*#__PURE__*/React.createElement("p", {
+  }, "เงินเข้า " + baht(t.receivedNet) + (t.stmtDiff > 0 ? " มากกว่า" : " น้อยกว่า") + "ยอดที่ต้องได้ " + baht(t.matchTarget) + " อยู่ " + baht(Math.abs(t.stmtDiff)) + " บาท"), /*#__PURE__*/React.createElement("p", {
     className: "text-muted leading-relaxed",
     style: {
       margin: 0,
@@ -1231,7 +1220,7 @@ function App() {
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-inkdark font-medium"
-  }, "\u0E25\u0E2D\u0E07\u0E40\u0E0A\u0E47\u0E01: "), t.stmtDiff > 0 ? "มีตู้ที่ขายแล้วแต่ยังไม่ลงหมวด 02 ไหม · ยอดยกไปเดือนหน้า (หมวด 04) ใส่ครบยัง · กรอกยอดโอน/บัตร/สด เกินจริงไหม" : "กรอกยอดโอน/บัตร/สด ครบทุกช่องยัง · มีลูกค้าค้างจ่ายที่ยังไม่เข้าบัญชีไหม · ยอดขายหมวด 02 ใส่เกินจริงไหม")))), /*#__PURE__*/React.createElement("section", {
+  }, "\u0E25\u0E2D\u0E07\u0E40\u0E0A\u0E47\u0E01: "), t.stmtDiff > 0 ? "มีตู้ที่ขายแล้วแต่ยังไม่ลงหมวด 02 ไหม · กรอกยอดโอน/บัตร/สด เกินจริงไหม" : "กรอกยอดโอน/บัตร/สด ครบทุกช่องยัง · มีลูกค้าค้างจ่ายที่ยังไม่เข้าบัญชีไหม · ยอดขายหมวด 02 ใส่เกินจริงไหม")))), /*#__PURE__*/React.createElement("section", {
     className: "bg-card rounded-2xl border border-line shadow-soft"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 px-5 py-4 border-b border-line"
@@ -1388,7 +1377,7 @@ function App() {
     title: "\u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32"
   }), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-muted"
-  }, "\u0E15\u0E39\u0E49\u0E40\u0E1B\u0E34\u0E14\u0E02\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27 \u0E22\u0E2D\u0E14\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A \u2014 \u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E40\u0E02\u0E49\u0E32\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E2B\u0E31\u0E01\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49 \u0E41\u0E25\u0E49\u0E27\u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32"), /*#__PURE__*/React.createElement("button", {
+  }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E22\u0E01\u0E44\u0E1B\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32 \u2014 \u0E40\u0E1B\u0E47\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u0E44\u0E21\u0E48\u0E01\u0E23\u0E30\u0E17\u0E1A\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49\u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E33\u0E44\u0E23\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E19\u0E35\u0E49"), /*#__PURE__*/React.createElement("button", {
     onClick: addCarry,
     className: "ml-auto " + addBtn
   }, "+ \u0E42\u0E25\u0E40\u0E04\u0E0A\u0E31\u0E48\u0E19")), /*#__PURE__*/React.createElement("div", {
@@ -1446,7 +1435,7 @@ function App() {
     className: "font-semibold border-t border-line"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-3 px-5 text-muted"
-  }, "\u0E23\u0E27\u0E21\u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32 (\u0E2B\u0E31\u0E01\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49)"), /*#__PURE__*/React.createElement("td", {
+  }, "\u0E23\u0E27\u0E21\u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32 (\u0E44\u0E21\u0E48\u0E01\u0E23\u0E30\u0E17\u0E1A\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49)"), /*#__PURE__*/React.createElement("td", {
     className: "num px-2 text-right text-brand"
   }, baht(t.carrySum)), /*#__PURE__*/React.createElement("td", {
     colSpan: "2"
@@ -1679,7 +1668,7 @@ function App() {
     className: "text-xs font-medium text-muted uppercase tracking-wide"
   }, "\u0E2A\u0E23\u0E38\u0E1B\u0E22\u0E2D\u0E14"), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-muted"
-  }, month)), /*#__PURE__*/React.createElement("div", {className: "border-b border-line", style: {marginBottom: 12, paddingBottom: 12}}, /*#__PURE__*/React.createElement("div", {className: "text-xs text-muted", style: {marginBottom: 2}}, "ยอดเงินที่ทีมหาได้"), /*#__PURE__*/React.createElement("div", {className: "num font-semibold text-inkdark", style: {fontSize: 20}}, baht(t.matchTarget + t.carrySum)), /*#__PURE__*/React.createElement("div", {className: "text-muted", style: {fontSize: 11}}, "ขายตู้ + รายได้อื่น + ยกไปเดือนหน้า")), /*#__PURE__*/React.createElement(Row, {
+  }, month)), /*#__PURE__*/React.createElement("div", {className: "border-b border-line", style: {marginBottom: 12, paddingBottom: 12}}, /*#__PURE__*/React.createElement("div", {className: "text-xs text-muted", style: {marginBottom: 2}}, "ยอดเงินที่ทีมหาได้"), /*#__PURE__*/React.createElement("div", {className: "num font-semibold text-inkdark", style: {fontSize: 20}}, baht(t.matchTarget)), /*#__PURE__*/React.createElement("div", {className: "text-muted", style: {fontSize: 11}}, "ขายตู้ + ค่าผ่อน + ค่าย้ายโล")), /*#__PURE__*/React.createElement(Row, {
     label: "\u0E01\u0E33\u0E44\u0E23\u0E02\u0E31\u0E49\u0E19\u0E15\u0E49\u0E19 \u0E2B\u0E31\u0E01\u0E20\u0E32\u0E29\u0E35\u0E15\u0E39\u0E49\u0E41\u0E25\u0E49\u0E27",
     v: t.grossProfit
   }), /*#__PURE__*/React.createElement(Row, {
@@ -1690,10 +1679,6 @@ function App() {
     label: "+ \u0E04\u0E48\u0E32\u0E22\u0E49\u0E32\u0E22\u0E42\u0E25",
     v: s.incRelocation,
     dim: true
-  }), t.carrySum > 0 && /*#__PURE__*/React.createElement(Row, {
-    label: "\u2212 \u0E22\u0E01\u0E44\u0E1B\u0E40\u0E14\u0E37\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32",
-    v: -t.carrySum,
-    sub: true
   }), /*#__PURE__*/React.createElement(Divider, null), /*#__PURE__*/React.createElement(Row, {
     label: "\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E44\u0E14\u0E49",
     v: t.totalRevenue,
