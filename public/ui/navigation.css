@@ -1,6 +1,0 @@
-.sidebar .nk-nav-group{border:0;margin:0 0 8px;padding:0;background:transparent;box-shadow:none}
-.sidebar .nk-nav-group-items{display:grid;gap:3px;min-width:0}
-.sidebar .nk-nav-group .nav-item{width:100%;min-width:0;height:auto;min-height:44px;text-align:left}
-.sidebar .nk-nav-group .nav-item>span{white-space:normal;overflow-wrap:anywhere;line-height:1.5}
-.sidebar .nk-nav-group>.nav-label{margin:18px 12px 6px}
-.sidebar .nk-nav-group:first-child>.nav-label{margin-top:4px}
